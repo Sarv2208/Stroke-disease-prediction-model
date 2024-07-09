@@ -1,0 +1,250 @@
+---
+title: "Build and deploy a stroke prediction model using R"
+date: "`r Sys.Date()`"
+output: html_document
+author: "Put your name!"
+---
+
+# About Data Analysis Report
+
+This RMarkdown file contains the report of the data analysis done for the project on building and deploying a stroke prediction model in R. It contains analysis such as data exploration, summary statistics and building the prediction models. The final report was completed on `r date()`. 
+
+**Data Description:**
+
+According to the World Health Organization (WHO) stroke is the 2nd leading cause of death globally, responsible for approximately 11% of total deaths.
+
+This data set is used to predict whether a patient is likely to get stroke based on the input parameters like gender, age, various diseases, and smoking status. Each row in the data provides relevant information about the patient.
+
+
+# Task One: Import data and data preprocessing
+
+## Load data and install packages
+```{r}
+install.packages('tidyverse')
+library(tidyverse)
+install.packages('ggplot2')
+library(ggplot2)
+install.packages('skimr')
+library(skimr)
+install.packages('caret')
+library(caret)
+install.packages('randomForest')
+library(randomForest)
+install.packages('lubridate')
+library(lubridate)
+install.packages('dplyr')
+library(dplyr)
+install.packages('gridExtra')
+library(gridExtra)
+install.packages('naniar')
+library(naniar)
+install.packages('caTools')
+library(caTools)
+install.packages('corrplot')
+library(corrplot)
+install.packages('ggcorrplot')
+library(ggcorrplot)
+install.packages('magrittr')
+library(magrittr)
+healthcare.dataset.stroke.data <- read.csv("C:/Users/C SARVESH/Downloads/healthcare-dataset-stroke-data.csv")
+View(healthcare.dataset.stroke.data)
+dfs<-healthcare.dataset.stroke.data
+
+```
+
+
+## Describe and explore the data
+
+```{r}
+summary(dfs)
+glimpse(dfs)
+skim(dfs)
+miss_scan_count(data=dfs,search=list('N/A','Unknown','Other'))
+dfs$bmi<-as.numeric(dfs$bmi)
+idx<-complete.cases(dfs)
+bmi_idx<-is.na(dfs$bmi)
+median_bmi<-median(dfs$bmi,na.rm = TRUE)
+dfs[bmi_idx,]$bmi<-median_bmi
+colSums(is.na(dfs))
+sum(duplicated(dfs))
+colSums(dfs=="N/A")
+dfs %>% count(gender)
+dfs <- dfs %>% 
+  select(-c(id)) %>%
+  filter(gender!='Other')
+View(dfs)
+str(dfs)
+dfs$stroke <- factor(dfs$stroke,levels=c(0,1),labels=c('no','yes'))
+dfs$hypertension <- factor(dfs$hypertension,levels=c(0,1),labels=c('no','yes'))
+dfs$heart_disease <- factor(dfs$heart_disease,levels=c(0,1),labels=c('no','yes'))
+
+
+
+```
+
+
+
+# Task Two: Build prediction models
+
+```{r}
+d1 <- dfs %>%
+  ggplot(aes(x = gender, fill = gender)) +
+  geom_bar(fill = c("red", "blue")) +
+  ggtitle("Gender Distribution") +
+  geom_text(aes(label=..count..), stat = "Count", vjust = 1.0)
+d2 <- dfs %>%
+  ggplot(aes(x = hypertension, fill = hypertension)) +
+  geom_bar(fill = c("red", "blue")) +
+  ggtitle("Hypertension Distribution") +
+  geom_text(aes(label=..count..), stat = "Count", vjust = 1.0)
+d3 <- dfs %>%
+  ggplot(aes(x = heart_disease, fill = heart_disease)) +
+  geom_bar(fill = c("red", "blue")) +
+  ggtitle("Heart disease Distribution") +
+  geom_text(aes(label=..count..), stat = "Count", vjust = 1.0)
+d4 <- dfs %>%
+  ggplot(aes(x = ever_married, fill = ever_married)) +
+  geom_bar(fill = c("red", "blue")) +
+  ggtitle("Married Distribution") +
+  geom_text(aes(label=..count..), stat = "Count", vjust = 1.0)
+d5 <- dfs %>%
+  ggplot(aes(x = work_type, fill = work_type)) +
+  geom_bar(fill = c("red", "blue",'green','orange','aquamarine')) +
+  ggtitle("Worktype Distribution") +
+  geom_text(aes(label=..count..), stat = "Count", vjust = 1.0)
+d6 <- dfs %>%
+  ggplot(aes(x = stroke, fill = stroke)) +
+  geom_bar(fill = c("red", "blue")) +
+  ggtitle("Stroke Distribution") +
+  geom_text(aes(label=..count..), stat = "Count", vjust = 1.0)
+d7 <- dfs %>%
+  ggplot(aes(x = Residence_type, fill = Residence_type)) +
+  geom_bar(fill = c("red", "blue")) +
+  ggtitle("Residence Distribution") +
+  geom_text(aes(label=..count..), stat = "Count", vjust = 1.0)
+grid.arrange(d1,d2,d3,d4,d5,d6,d7,ncol=2)
+desc1 <- dfs %>%
+  ggplot(aes(x = gender, fill = stroke)) +
+  geom_bar(position = "fill") +
+  scale_fill_manual(values=c("aquamarine3",
+                             "blueviolet")) +
+  ggtitle("Gender vs. Stroke")
+plot(desc1)
+desc2 <- dfs %>%
+  ggplot(aes(x = hypertension, fill = stroke)) +
+  geom_bar(position = "fill") +
+  scale_fill_manual(values=c("aquamarine3",
+                             "blueviolet")) +
+  ggtitle("Hypertension vs. Stroke")
+plot(desc2)
+desc3 <- dfs %>%
+  ggplot(aes(x = heart_disease, fill = stroke)) +
+  geom_bar(position = "fill") +
+  scale_fill_manual(values=c("aquamarine3",
+                             "blueviolet")) +
+  ggtitle("Heart disease vs. Stroke") 
+plot(desc3)
+desc4 <- dfs %>%
+  ggplot(aes(x = Residence_type, fill = stroke)) +
+  geom_bar(position = "fill") +
+  scale_fill_manual(values=c("aquamarine3",
+                             "blueviolet")) +
+  ggtitle("Residence type vs. Stroke")
+plot(desc4)
+p1 <- dfs %>%
+    ggplot(aes(x = smoking_status, fill = stroke)) +
+    geom_bar(position = "fill") +
+    scale_fill_manual(values=c("aquamarine3",
+                               "blueviolet")) +
+    ggtitle("Smoking status vs. Stroke")
+plot(p1)
+p2 <- dfs %>%
+  ggplot(aes(x = work_type, fill = stroke)) +
+  geom_bar(position = "fill") +
+  scale_fill_manual(values=c("aquamarine3",
+                             "blueviolet"
+                             )) +
+  ggtitle("Type of Work vs. Stroke")
+plot(p2)
+m1 <- dfs %>%
+  ggplot(aes(x = avg_glucose_level, fill = stroke)) +
+  geom_density(alpha = 0.7) +
+  scale_fill_manual(values=c("aquamarine3",
+                             "blueviolet"
+  )) +
+  ggtitle("Average Glucose level vs. Stroke")
+plot(m1)
+m2 <- dfs %>% filter(between(bmi, 0, 60)) %>%
+  ggplot(aes(x = bmi, fill = stroke)) +
+  geom_density(alpha = 0.7) +
+  scale_fill_manual(values=c("aquamarine3",
+                             "blueviolet"
+  )) +
+  ggtitle("Body Mass Index vs. Stroke")
+plot(m2)
+grid.arrange(desc1,desc2,desc3,desc4, ncol = 4)
+grid.arrange(p1,p2, ncol = 2)
+grid.arrange(m1,m2,ncol = 2)
+```
+
+
+
+
+# Task Three: Evaluate and select prediction models
+
+```{r}
+split_tag<-sample.split(dfs$stroke,SplitRatio = 0.8)
+train<-subset(dfs,split_tag==TRUE)
+test<-subset(dfs,split_tag==FALSE)
+dim(train)
+dim(test)
+```
+
+
+
+# Task Four: Deploy the prediction model
+
+```{r}
+set.seed(123)
+rf<-randomForest(formula=stroke~.,data=train)
+rf
+plot(rf)
+confusionMatrix(predict(rf,test),test$stroke)
+```
+
+
+
+
+# Task Five: Findings and Conclusions
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
