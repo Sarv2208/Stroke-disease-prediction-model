@@ -216,7 +216,7 @@ confusionMatrix(predict(rf,test),test$stroke)
 
 
 # Task Five: Findings and Conclusions
-
+As depicted above, our model has obtained an accuracy rate exceeding 95%, indicating that it underwent effective training.
 
 
 
